@@ -47,7 +47,7 @@ public class Ansible {
     }
 
     /**
-     * Endpoint για το κατέβασμα του παραγόμενου ZIP από τον χρήστη.
+     * Endpoint για το κατέβασμα του παραγόμενου ZIP από τον χρήστη..
      */
     @GetMapping("/download/{ansibleJobId}")
     public ResponseEntity<byte[]> downloadAnsible(@PathVariable String ansibleJobId, @RequestParam String userId) {
