@@ -15,7 +15,6 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtFilter;
 
-    // Injection του φίλτρου που κάνει το verification
     public SecurityConfig(JwtAuthenticationFilter jwtFilter) {
         this.jwtFilter = jwtFilter;
     }
@@ -23,28 +22,28 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // 1. Απενεργοποίηση CSRF (απαραίτητο για stateless REST APIs)
+                // 1. Απενεργοποίηση CSRF για stateless APIs
                 .csrf(AbstractHttpConfigurer::disable)
 
-                // 2. Stateless διαχείριση (δεν χρησιμοποιούμε sessions/cookies)
+                // 2. Stateless Session (δεν κρατάμε state στον server)
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
 
-                // 3. Ρύθμιση κανόνων πρόσβασης
+                // 3. Κανόνες Πρόσβασης
                 .authorizeHttpRequests(auth -> auth
-                        // Επιτρέπουμε το webhook από τον Analyzer (εσωτερική επικοινωνία)
+                        /* * Εδώ είναι η διαφορά: Απαιτούμε authentication ΠΑΝΤΟΥ.
+                         * Πλέον ο Analyzer θα στέλνει το Token, οπότε το 403 θα φύγει.
+                         */
                         .requestMatchers("/ansible/generate/**").authenticated()
-
-                        // Τα endpoints για download και status απαιτούν έγκυρο JWT
                         .requestMatchers("/ansible/download/**").authenticated()
                         .requestMatchers("/ansible/status/**").authenticated()
 
-                        // Οτιδήποτε άλλο απαιτεί επίσης login
+                        // Οτιδήποτε άλλο επίσης κλειδωμένο
                         .anyRequest().authenticated()
                 )
 
-                // 4. Προσθήκη του JWT Filter ΠΡΙΝ το βασικό φίλτρο της Spring
+                // 4. Ενεργοποίηση του Custom JWT Filter
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

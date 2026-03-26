@@ -32,10 +32,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String pem = vaultService.getSigningPublicKey();
             if (pem != null) {
                 this.publicKey = vaultService.getKeyFromPEM(pem);
-                System.out.println("✅ Terraform Gen: JWT Public Key loaded.");
+                System.out.println("✅ Ansible Gen: JWT Public Key loaded.");
             }
         } catch (Exception e) {
-            System.err.println("❌ Critical Error loading Public Key: " + e.getMessage());
+            System.err.println("❌ Critical Error loading Public Key in Ansible Gen: " + e.getMessage());
         }
     }
 
@@ -48,8 +48,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (publicKey != null && authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7);
             try {
-                // ΕΠΑΛΗΘΕΥΣΗ: Το setSigningKey(publicKey) εγγυάται ότι το token
-                // υπογράφηκε από το Auth Service μας.
+                // ΕΠΑΛΗΘΕΥΣΗ: Χρήση του Public Key για RSA verification
                 Claims claims = Jwts.parserBuilder()
                         .setSigningKey(publicKey)
                         .build()
@@ -58,12 +57,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 String userId = claims.getSubject();
 
+                /* * Η ΑΛΛΑΓΗ ΕΔΩ:
+                 * Αποθηκεύουμε το 'token' στα credentials.
+                 * Αυτό επιτρέπει στο Ansible Service να έχει πρόσβαση στο JWT
+                 * αν χρειαστεί να το προωθήσει σε επόμενο service (π.χ. Pipeline).
+                 */
                 UsernamePasswordAuthenticationToken auth =
-                        new UsernamePasswordAuthenticationToken(userId, null, Collections.emptyList());
+                        new UsernamePasswordAuthenticationToken(userId, token, Collections.emptyList());
+
                 SecurityContextHolder.getContext().setAuthentication(auth);
 
             } catch (Exception e) {
-                System.out.println("⛔ Invalid Token in Terraform Gen: " + e.getMessage());
+                System.out.println("⛔ Invalid Token in Ansible Gen: " + e.getMessage());
             }
         }
         filterChain.doFilter(request, response);
