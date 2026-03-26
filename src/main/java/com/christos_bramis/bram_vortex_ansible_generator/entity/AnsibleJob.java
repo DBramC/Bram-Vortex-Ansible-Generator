@@ -4,6 +4,8 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "ansible_jobs") // Ο δικός του, ανεξάρτητος πίνακας
@@ -20,6 +22,7 @@ public class AnsibleJob {
     private String status; // π.χ. GENERATING, COMPLETED, FAILED
 
     // ΕΔΩ ΕΙΝΑΙ Η ΜΑΓΕΙΑ: Η Postgres θα το κάνει BYTEA (BLOB)
+    @JdbcTypeCode(SqlTypes.BINARY)
     @Column(name = "terraform_zip", columnDefinition = "bytea")
     private byte[] ansibleZip;
 
