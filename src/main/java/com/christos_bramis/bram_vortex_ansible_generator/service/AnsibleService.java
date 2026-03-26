@@ -30,21 +30,31 @@ public class AnsibleService {
     }
 
     public void generateAndSaveAnsible(String ansibleJobId, String analysisJobId, String userId) {
+        System.out.println("\n🚀 [VORTEX-ANSIBLE] --- STARTING ANSIBLE GENERATION ---");
+        System.out.println("👤 User ID: " + userId);
+        System.out.println("🆔 Ansible Job ID: " + ansibleJobId);
+
         AnsibleJob job = new AnsibleJob();
         job.setId(ansibleJobId);
         job.setAnalysisJobId(analysisJobId);
         job.setUserId(userId);
         job.setStatus("GENERATING");
+
+        System.out.println("💾 [STAGE 0] Initializing Job in Database...");
         ansibleJobRepository.save(job);
 
         java.util.concurrent.CompletableFuture.runAsync(() -> {
             try {
+                // 1. Fetching Blueprint
+                System.out.println("📦 [STAGE 1] Fetching Architectural Blueprint for Analysis Job: " + analysisJobId);
                 AnalysisJob analysisJob = analysisJobRepository.findById(analysisJobId)
                         .orElseThrow(() -> new RuntimeException("Analysis blueprint not found"));
 
                 String blueprintJson = analysisJob.getBlueprintJson();
+                System.out.println("✅ Blueprint found and loaded.");
 
-                // --- NEW ANSIBLE PROMPT ---
+                // 2. AI Dispatch
+                System.out.println("🧠 [STAGE 2] Formatting Prompt & Dispatching to AI...");
                 String prompt = String.format("""
                     You are a Principal DevOps Engineer and Ansible Specialist.
                     Generate a PRODUCTION-READY Ansible structure to deploy a Spring Boot application on a Virtual Machine.
@@ -78,7 +88,10 @@ public class AnsibleService {
 
                 var mapOutputConverter = new MapOutputConverter();
                 String aiResponse = chatModel.call(prompt + "\n\n" + mapOutputConverter.getFormat());
+                System.out.println("📥 AI Response received.");
 
+                // 3. Processing Files
+                System.out.println("⚙️ [STAGE 3] Cleaning and converting AI response to file structure...");
                 String cleanResponse = aiResponse.trim();
                 if (cleanResponse.startsWith("```")) {
                     cleanResponse = cleanResponse.replaceAll("^```json\\s*", "").replaceAll("```$", "").trim();
@@ -87,16 +100,25 @@ public class AnsibleService {
                 Map<String, Object> asFilesRaw = mapOutputConverter.convert(cleanResponse);
                 Map<String, String> asFiles = new HashMap<>();
                 if (asFilesRaw != null) {
-                    asFilesRaw.forEach((k, v) -> asFiles.put(k, String.valueOf(v)));
+                    asFilesRaw.forEach((k, v) -> {
+                        asFiles.put(k, String.valueOf(v));
+                        System.out.println("   [+] Generated file: " + k);
+                    });
                 }
 
+                // 4. Zipping
+                System.out.println("🤐 [STAGE 4] Compressing files into ZIP archive...");
                 byte[] zipBytes = createZipInMemory(asFiles);
+                System.out.println("✅ ZIP created. Size: " + zipBytes.length + " bytes.");
 
+                // 5. Finalize
                 job.setAnsibleZip(zipBytes);
                 job.setStatus("COMPLETED");
                 ansibleJobRepository.save(job);
+                System.out.println("🏁 [FINISH] Ansible Job " + ansibleJobId + " completed successfully!\n");
 
             } catch (Exception e) {
+                System.err.println("❌ [ASYNC ERROR] Ansible Generation failed for Job " + ansibleJobId + ": " + e.getMessage());
                 job.setStatus("FAILED");
                 ansibleJobRepository.save(job);
             }
