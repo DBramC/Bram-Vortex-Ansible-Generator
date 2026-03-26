@@ -87,19 +87,18 @@ public class Ansible {
     }
 
     /**
-     * Status endpoint - Επιστρέφει την κατάσταση της παραγωγής.
+     * Status endpoint βάσει Analysis ID (για το Frontend)
      */
-    @GetMapping("/status/{ansibleJobId}")
-    public ResponseEntity<String> getStatus(@PathVariable String ansibleJobId, Authentication auth) {
+    @GetMapping("/status/by-analysis/{analysisJobId}")
+    public ResponseEntity<String> getStatusByAnalysis(@PathVariable String analysisJobId, Authentication auth) {
         String userId = auth.getName();
-        return ansibleJobRepository.findById(ansibleJobId)
+        return ansibleJobRepository.findByAnalysisJobId(analysisJobId)
                 .map(job -> {
-                    // Μόνο ο ιδιοκτήτης του job μπορεί να δει το status
                     if (!job.getUserId().equals(userId)) {
                         return ResponseEntity.status(HttpStatus.FORBIDDEN).<String>build();
                     }
                     return ResponseEntity.ok(job.getStatus());
                 })
-                .orElse(ResponseEntity.notFound().build());
+                .orElse(ResponseEntity.ok("PENDING")); // Αν δεν έχει ξεκινήσει ακόμα
     }
 }
