@@ -23,7 +23,7 @@ public class AnsibleService {
     private final AnsibleJobRepository ansibleJobRepository;
     private final AnalysisJobRepository analysisJobRepository;
     private final ChatModel chatModel;
-    private final ObjectMapper objectMapper; // Για ασφαλές parsing
+    private final ObjectMapper objectMapper;
 
     public AnsibleService(AnsibleJobRepository ansibleJobRepository,
                           AnalysisJobRepository analysisJobRepository,
@@ -50,7 +50,9 @@ public class AnsibleService {
                 AnalysisJob analysisJob = analysisJobRepository.findById(analysisJobId)
                         .orElseThrow(() -> new RuntimeException("Analysis blueprint not found"));
 
-                String blueprintJson = analysisJob.getBlueprintJson();
+                // Η ΣΩΣΤΗ ΓΡΑΜΜΗ: Πρόσεξε το .toPrettyString() πριν το ερωτηματικό
+                String blueprintJson = analysisJob.getBlueprintJson() != null ?
+                        analysisJob.getBlueprintJson() : "{}";
 
                 // 2. AI Dispatch
                 String prompt = String.format("""
@@ -87,16 +89,23 @@ public class AnsibleService {
                 System.out.println("🧠 [ANSIBLE] Calling AI...");
                 String aiResponse = chatModel.call(prompt);
 
+                // ΔΙΑΓΝΩΣΤΙΚΟ: Βλέπουμε τι ακριβώς έστειλε το AI
+                System.out.println("DEBUG AI RAW RESPONSE length: " + (aiResponse != null ? aiResponse.length() : 0));
+
                 // 3. Robust Parsing
                 Map<String, String> asFiles = parseResponse(aiResponse);
 
-                if (asFiles.isEmpty()) {
+                if (asFiles == null || asFiles.isEmpty()) {
                     throw new RuntimeException("AI returned empty file set or invalid JSON format");
                 }
 
                 // 4. Zipping
                 System.out.println("🤐 [ANSIBLE] Creating ZIP for " + asFiles.size() + " files...");
                 byte[] zipBytes = createZipInMemory(asFiles);
+
+                if (zipBytes == null || zipBytes.length < 100) {
+                    throw new RuntimeException("Generated ZIP is suspiciously small (" + (zipBytes != null ? zipBytes.length : 0) + " bytes)");
+                }
 
                 // 5. Finalize
                 job.setAnsibleZip(zipBytes);
@@ -113,6 +122,11 @@ public class AnsibleService {
     }
 
     private Map<String, String> parseResponse(String response) {
+        if (response == null || response.trim().isEmpty()) {
+            System.err.println("⚠️ [PARSING ERROR] AI response is null or empty");
+            return new HashMap<>();
+        }
+
         try {
             String clean = response.trim();
             // Αφαίρεση markdown αν το AI παρακούσει
@@ -129,16 +143,19 @@ public class AnsibleService {
     }
 
     private byte[] createZipInMemory(Map<String, String> files) throws Exception {
+        // Το baos μένει έξω από το try-with-resources του zos, για να το επιστρέψουμε στο τέλος.
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try (ZipOutputStream zos = new ZipOutputStream(baos)) {
             for (Map.Entry<String, String> entry : files.entrySet()) {
+                if (entry.getValue() == null || entry.getValue().isEmpty()) continue;
+
                 ZipEntry zipEntry = new ZipEntry(entry.getKey());
                 zos.putNextEntry(zipEntry);
-                // Χρήση UTF_8 για αποφυγή προβλημάτων με ειδικούς χαρακτήρες
                 zos.write(entry.getValue().getBytes(StandardCharsets.UTF_8));
                 zos.closeEntry();
             }
             zos.finish(); // Οριστικοποίηση του ZIP structure
+            zos.flush();
         }
         return baos.toByteArray();
     }
