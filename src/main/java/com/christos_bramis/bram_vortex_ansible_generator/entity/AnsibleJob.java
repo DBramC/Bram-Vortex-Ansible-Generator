@@ -20,7 +20,7 @@ public class AnsibleJob {
     private String status; // π.χ. GENERATING, COMPLETED, FAILED
 
     // ΕΔΩ ΕΙΝΑΙ Η ΜΑΓΕΙΑ: Η Postgres θα το κάνει BYTEA (BLOB)
-    @Column(name = "ansible_zip")
+    @Column(name = "terraform_zip", columnDefinition = "bytea")
     private byte[] ansibleZip;
 
     // --- Getters & Setters ---
