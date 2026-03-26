@@ -34,11 +34,11 @@ public class SecurityConfig {
                 // 3. Ρύθμιση κανόνων πρόσβασης
                 .authorizeHttpRequests(auth -> auth
                         // Επιτρέπουμε το webhook από τον Analyzer (εσωτερική επικοινωνία)
-                        .requestMatchers("/terraform/generate/**").permitAll()
+                        .requestMatchers("/ansible/generate/**").authenticated()
 
                         // Τα endpoints για download και status απαιτούν έγκυρο JWT
-                        .requestMatchers("/terraform/download/**").authenticated()
-                        .requestMatchers("/terraform/status/**").authenticated()
+                        .requestMatchers("/ansible/download/**").authenticated()
+                        .requestMatchers("/ansible/status/**").authenticated()
 
                         // Οτιδήποτε άλλο απαιτεί επίσης login
                         .anyRequest().authenticated()
