@@ -6,6 +6,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -17,7 +18,6 @@ public class Ansible {
     private final AnsibleService ansibleService;
     private final AnsibleJobRepository ansibleJobRepository;
 
-    // Constructor Injection για τα απαραίτητα beans
     public Ansible(AnsibleService ansibleService, AnsibleJobRepository ansibleJobRepository) {
         this.ansibleService = ansibleService;
         this.ansibleJobRepository = ansibleJobRepository;
@@ -25,20 +25,22 @@ public class Ansible {
 
     /**
      * Endpoint που δέχεται το Webhook από τον Repo Analyzer.
-     * Ξεκινάει την επικοινωνία με το AI και τη δημιουργία του ZIP.
+     * Πλέον το userId έρχεται από το επικυρωμένο JWT Token.
      */
     @PostMapping("/generate/{analysisJobId}")
-    public ResponseEntity<String> generateAnsible(@PathVariable String analysisJobId, @RequestParam String userId) {
-        System.out.println("🚀 [CONTROLLER] Webhook received from Analyzer for Job: " + analysisJobId);
+    public ResponseEntity<String> generateAnsible(
+            @PathVariable String analysisJobId,
+            Authentication auth) { // <--- Λήψη του χρήστη από το Security Context
+
+        String userId = auth.getName();
+        System.out.println("🚀 [ANSIBLE CONTROLLER] Webhook received for Job: " + analysisJobId + " from User: " + userId);
 
         try {
-            // Δημιουργούμε ένα μοναδικό ID για τη συγκεκριμένη παραγωγή Ansible
             String ansibleJobId = UUID.randomUUID().toString();
 
-            // Καλούμε το Service (το οποίο τρέχει Async, οπότε δεν μπλοκάρουμε τον Analyzer)
+            // Ξεκινάμε την παραγωγή (Async) χρησιμοποιώντας το userId από το Token
             ansibleService.generateAndSaveAnsible(ansibleJobId, analysisJobId, userId);
 
-            // Επιστρέφουμε το ID στον Analyzer (ή στο frontend) για να ξέρουν πώς να το αναζητήσουν
             return ResponseEntity.ok(ansibleJobId);
         } catch (Exception e) {
             System.err.println("❌ [CONTROLLER ERROR]: " + e.getMessage());
@@ -47,27 +49,29 @@ public class Ansible {
     }
 
     /**
-     * Endpoint για το κατέβασμα του παραγόμενου ZIP από τον χρήστη..
+     * Endpoint για το κατέβασμα του ZIP.
+     * Το Security Check γίνεται πλέον αυτόματα με το Token του χρήστη.
      */
     @GetMapping("/download/{ansibleJobId}")
-    public ResponseEntity<byte[]> downloadAnsible(@PathVariable String ansibleJobId, @RequestParam String userId) {
-        System.out.println("📦 [CONTROLLER] Download request for AS Job: " + ansibleJobId);
+    public ResponseEntity<byte[]> downloadAnsible(
+            @PathVariable String ansibleJobId,
+            Authentication auth) { // <--- Λήψη του χρήστη από το Security Context
 
-        // 1. Αναζήτηση στη βάση
+        String userId = auth.getName();
+        System.out.println("📦 [ANSIBLE CONTROLLER] Download request for Job: " + ansibleJobId + " by User: " + userId);
+
         return ansibleJobRepository.findById(ansibleJobId)
                 .map(job -> {
-                    // 2. SECURITY CHECK: Ανήκει αυτό το Job στον χρήστη που το ζητάει;
+                    // SECURITY CHECK: Συγκρίνουμε το ID από τη βάση με το ID από το Token
                     if (!job.getUserId().equals(userId)) {
-                        System.err.println("🚫 [SECURITY] User " + userId + " tried to access unauthorized job: " + ansibleJobId);
+                        System.err.println("🚫 [SECURITY] Unauthorized access attempt by user: " + userId);
                         return ResponseEntity.status(HttpStatus.FORBIDDEN).<byte[]>build();
                     }
 
-                    // 3. CHECK STATUS: Είναι έτοιμο το αρχείο;
                     if (!"COMPLETED".equals(job.getStatus()) || job.getAnsibleZip() == null) {
-                        return ResponseEntity.status(HttpStatus.ACCEPTED).<byte[]>build(); // 202 Accepted (σημαίνει "ακόμα δουλεύω")
+                        return ResponseEntity.status(HttpStatus.ACCEPTED).<byte[]>build();
                     }
 
-                    // 4. PREPARE DOWNLOAD: Φτιάχνουμε τα headers για τον browser
                     HttpHeaders headers = new HttpHeaders();
                     headers.setContentType(MediaType.parseMediaType("application/zip"));
                     headers.setContentDispositionFormData("attachment", "vortex-ansible-" + ansibleJobId + ".zip");
@@ -79,12 +83,19 @@ public class Ansible {
     }
 
     /**
-     * Προαιρετικό: Endpoint για να βλέπει το frontend το status (GENERATING, COMPLETED, FAILED)
+     * Status endpoint - Επιστρέφει την κατάσταση της παραγωγής.
      */
     @GetMapping("/status/{ansibleJobId}")
-    public ResponseEntity<String> getStatus(@PathVariable String ansibleJobId) {
+    public ResponseEntity<String> getStatus(@PathVariable String ansibleJobId, Authentication auth) {
+        String userId = auth.getName();
         return ansibleJobRepository.findById(ansibleJobId)
-                .map(job -> ResponseEntity.ok(job.getStatus()))
+                .map(job -> {
+                    // Μόνο ο ιδιοκτήτης του job μπορεί να δει το status
+                    if (!job.getUserId().equals(userId)) {
+                        return ResponseEntity.status(HttpStatus.FORBIDDEN).<String>build();
+                    }
+                    return ResponseEntity.ok(job.getStatus());
+                })
                 .orElse(ResponseEntity.notFound().build());
     }
 }
