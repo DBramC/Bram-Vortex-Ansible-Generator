@@ -52,29 +52,33 @@ public class Ansible {
      * Endpoint για το κατέβασμα του ZIP.
      * Το Security Check γίνεται πλέον αυτόματα με το Token του χρήστη.
      */
-    @GetMapping("/download/{ansibleJobId}")
-    public ResponseEntity<byte[]> downloadAnsible(
-            @PathVariable String ansibleJobId,
-            Authentication auth) { // <--- Λήψη του χρήστη από το Security Context
+    @GetMapping("/download/by-analysis/{analysisJobId}") // <--- Αλλάζουμε το path για σαφήνεια
+    public ResponseEntity<byte[]> downloadAnsibleByAnalysisId(
+            @PathVariable String analysisJobId, // <--- Πλέον δεχόμαστε το Analysis ID
+            Authentication auth) {
 
         String userId = auth.getName();
-        System.out.println("📦 [ANSIBLE CONTROLLER] Download request for Job: " + ansibleJobId + " by User: " + userId);
+        System.out.println("📦 [ANSIBLE] Download request for Analysis Job: " + analysisJobId + " by User: " + userId);
 
-        return ansibleJobRepository.findById(ansibleJobId)
+        // Χρησιμοποιούμε τη νέα μέθοδο findByAnalysisJobId αντί για την findById
+        return ansibleJobRepository.findByAnalysisJobId(analysisJobId)
                 .map(job -> {
-                    // SECURITY CHECK: Συγκρίνουμε το ID από τη βάση με το ID από το Token
+                    // SECURITY CHECK: Έλεγχος αν το job ανήκει στον χρήστη
                     if (!job.getUserId().equals(userId)) {
                         System.err.println("🚫 [SECURITY] Unauthorized access attempt by user: " + userId);
                         return ResponseEntity.status(HttpStatus.FORBIDDEN).<byte[]>build();
                     }
 
+                    // Έλεγχος αν η παραγωγή έχει ολοκληρωθεί
                     if (!"COMPLETED".equals(job.getStatus()) || job.getAnsibleZip() == null) {
                         return ResponseEntity.status(HttpStatus.ACCEPTED).<byte[]>build();
                     }
 
+                    // Προετοιμασία των Headers για το ZIP αρχείο
                     HttpHeaders headers = new HttpHeaders();
                     headers.setContentType(MediaType.parseMediaType("application/zip"));
-                    headers.setContentDispositionFormData("attachment", "vortex-ansible-" + ansibleJobId + ".zip");
+                    // Δίνουμε ένα όνομα στο αρχείο που κατεβαίνει
+                    headers.setContentDispositionFormData("attachment", "vortex-ansible-" + analysisJobId + ".zip");
                     headers.setCacheControl("must-revalidate, post-check=0, pre-check=0");
 
                     return new ResponseEntity<>(job.getAnsibleZip(), headers, HttpStatus.OK);
