@@ -12,7 +12,7 @@ import org.hibernate.type.SqlTypes;
 public class AnsibleJob {
 
     @Id
-    private String id; // Το ID αυτού του Terraform Job
+    private String id; // Το ID αυτού του Ansible Job
 
     @Column(name = "analysis_job_id", nullable = false)
     private String analysisJobId; // Κρατάμε το ID της ανάλυσης για reference
@@ -23,7 +23,7 @@ public class AnsibleJob {
 
     // ΕΔΩ ΕΙΝΑΙ Η ΜΑΓΕΙΑ: Η Postgres θα το κάνει BYTEA (BLOB)
     @JdbcTypeCode(SqlTypes.BINARY)
-    @Column(name = "terraform_zip", columnDefinition = "bytea")
+    @Column(name = "ansible_zip", columnDefinition = "bytea")
     private byte[] ansibleZip;
 
     // --- Getters & Setters ---
