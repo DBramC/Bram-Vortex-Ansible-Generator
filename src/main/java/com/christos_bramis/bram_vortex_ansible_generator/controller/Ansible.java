@@ -91,6 +91,6 @@ public class Ansible {
                     }
                     return ResponseEntity.ok(job.getStatus());
                 })
-                .orElse(ResponseEntity.ok("PENDING")); // Αν δεν έχει ξεκινήσει ακόμα
+                .orElse(ResponseEntity.ok("GENERATING")); // Αν δεν έχει ξεκινήσει ακόμα
     }
 }

@@ -22,28 +22,32 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // 1. Απενεργοποίηση CSRF για stateless APIs
+                // 1. Προσθήκη CORS
+                .cors(cors -> cors.configurationSource(request -> {
+                    var opt = new org.springframework.web.cors.CorsConfiguration();
+                    opt.setAllowedOrigins(java.util.List.of("http://localhost"));
+                    opt.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+                    opt.setAllowedHeaders(java.util.List.of("*"));
+                    opt.setAllowCredentials(true);
+                    return opt;
+                }))
+                // 2. Απενεργοποίηση CSRF για stateless APIs
                 .csrf(AbstractHttpConfigurer::disable)
 
-                // 2. Stateless Session (δεν κρατάμε state στον server)
+                // 3. Stateless Session
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
 
-                // 3. Κανόνες Πρόσβασης
+                // 4. Κανόνες Πρόσβασης
                 .authorizeHttpRequests(auth -> auth
-                        /* * Εδώ είναι η διαφορά: Απαιτούμε authentication ΠΑΝΤΟΥ.
-                         * Πλέον ο Analyzer θα στέλνει το Token, οπότε το 403 θα φύγει.
-                         */
                         .requestMatchers("/ansible/generate/**").authenticated()
                         .requestMatchers("/ansible/download/**").authenticated()
                         .requestMatchers("/ansible/status/**").authenticated()
-
-                        // Οτιδήποτε άλλο επίσης κλειδωμένο
                         .anyRequest().authenticated()
                 )
 
-                // 4. Ενεργοποίηση του Custom JWT Filter
+                // 5. Ενεργοποίηση του Custom JWT Filter
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
