@@ -33,12 +33,10 @@ public class Ansible {
     @PostMapping("/generate/{analysisJobId}")
     public ResponseEntity<String> generateAnsible(
             @PathVariable String analysisJobId,
-            Authentication auth,
-            @AuthenticationPrincipal Jwt jwt) { // 👈 Το Spring κάνει τη "μαγεία" εδώ
+            Authentication auth) {
 
-        // 1. Τώρα μπορείς να πάρεις το Token και το UserID χωρίς κίνδυνο για Exception
-        String token = jwt.getTokenValue();
-        String userId = jwt.getSubject();
+        String userId = (String) auth.getPrincipal();
+        String token = (String) auth.getCredentials();
         System.out.println("🚀 [ANSIBLE CONTROLLER] Webhook received for Job: " + analysisJobId + " from User: " + userId);
 
         try {
