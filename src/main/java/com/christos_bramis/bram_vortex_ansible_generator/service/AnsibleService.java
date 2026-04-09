@@ -57,20 +57,21 @@ public class AnsibleService {
                 // 2. AI Dispatch
                 String prompt = String.format("""
                     You are a Principal DevOps Engineer and Ansible Specialist.
-                    Generate a PRODUCTION-READY Ansible structure to deploy a Spring Boot application on a Virtual Machine.
+                    Generate a PRODUCTION-READY Ansible structure to deploy the application described in the Blueprint on a Virtual Machine.
                 
                     --- ARCHITECTURAL BLUEPRINT (JSON) ---
                     %s
                     --------------------------------------
 
                     ENGINEERING REQUIREMENTS:
-                    1. **OS Setup**: Assume Ubuntu/Debian. Update apt cache and install Java (JDK 21).
-                    2. **Application Deployment**: 
-                       - Create a dedicated system user.
+                    1. **OS Setup**: Read the required OS from the 'deploymentMetadata.osDistro' field in the JSON. Update caches accordingly (e.g., apt, yum).
+                    2. **Dependencies**: Read the language and version from 'ciCdMetadata.languageVersion' and 'ciCdMetadata.buildTool' to install the correct runtime (e.g., Java JDK, Node.js, Python).
+                    3. **Application Deployment**: 
+                       - Create the dedicated system user specified in 'deploymentMetadata.executionUser'.
                        - Setup a directory structure in `/opt/app`.
-                       - Generate a Systemd unit file (`app.service`) to manage the JAR.
-                    3. **Environment**: Inject configurations as environment variables.
-                    4. **Networking**: Open firewall for the target port.
+                       - Generate a Systemd unit file (`app.service`) to manage the application, using any 'deploymentMetadata.jvmArgs' if applicable.
+                    4. **Environment**: Inject configurations from 'configurationSettings' as environment variables.
+                    5. **Networking**: Open the firewall for the 'targetContainerPort' specified in the JSON.
 
                     OUTPUT FORMAT:
                     - Respond ONLY with a SINGLE, VALID JSON object.
