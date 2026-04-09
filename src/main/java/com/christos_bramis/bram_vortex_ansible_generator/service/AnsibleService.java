@@ -8,6 +8,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
@@ -34,7 +35,7 @@ public class AnsibleService {
         this.objectMapper = new ObjectMapper();
     }
 
-    public void generateAndSaveAnsible(String ansibleJobId, String analysisJobId, String userId) {
+    public void generateAndSaveAnsible(String ansibleJobId, String analysisJobId, String userId, String token) {
         System.out.println("\n🚀 [VORTEX-ANSIBLE] Starting Generation for Job: " + ansibleJobId);
 
         AnsibleJob job = new AnsibleJob();
@@ -112,14 +113,29 @@ public class AnsibleService {
                 job.setAnsibleZip(zipBytes);
                 job.setStatus("COMPLETED");
                 ansibleJobRepository.save(job);
+                notifyOrchestrator(analysisJobId, "ANSIBLE", "COMPLETED", token);
                 System.out.println("✅ [ANSIBLE] Success! ZIP size: " + zipBytes.length + " bytes.");
 
             } catch (Exception e) {
                 System.err.println("❌ [ANSIBLE ERROR]: " + e.getMessage());
                 job.setStatus("FAILED");
                 ansibleJobRepository.save(job);
+                notifyOrchestrator(analysisJobId, "ANSIBLE", "COMPLETED", token);
+
             }
         });
+    }
+
+    private void notifyOrchestrator(String jobId, String service, String status, String token) {
+        String url = String.format("http://repo-analyzer-svc/dashboard/internal/callback/%s?service=%s&status=%s",
+                jobId, service, status);
+
+        RestClient internalClient = RestClient.create();
+        internalClient.post()
+                .uri(url)
+                .header("Authorization", "Bearer " + token) // 👈 Το token επιστρέφει στον Analyzer
+                .retrieve()
+                .toBodilessEntity();
     }
 
     private Map<String, String> parseResponse(String response) {

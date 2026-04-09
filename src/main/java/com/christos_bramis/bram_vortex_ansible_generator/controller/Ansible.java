@@ -7,8 +7,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Objects;
 import java.util.UUID;
 
 @RestController
@@ -33,13 +35,14 @@ public class Ansible {
             Authentication auth) { // <--- Λήψη του χρήστη από το Security Context
 
         String userId = auth.getName();
+        String token = ((Jwt) Objects.requireNonNull(auth.getPrincipal())).getTokenValue();
         System.out.println("🚀 [ANSIBLE CONTROLLER] Webhook received for Job: " + analysisJobId + " from User: " + userId);
 
         try {
             String ansibleJobId = UUID.randomUUID().toString();
 
             // Ξεκινάμε την παραγωγή (Async) χρησιμοποιώντας το userId από το Token
-            ansibleService.generateAndSaveAnsible(ansibleJobId, analysisJobId, userId);
+            ansibleService.generateAndSaveAnsible(ansibleJobId, analysisJobId, userId, token);
 
             return ResponseEntity.ok(ansibleJobId);
         } catch (Exception e) {
