@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
@@ -32,10 +33,12 @@ public class Ansible {
     @PostMapping("/generate/{analysisJobId}")
     public ResponseEntity<String> generateAnsible(
             @PathVariable String analysisJobId,
-            Authentication auth) { // <--- Λήψη του χρήστη από το Security Context
+            Authentication auth,
+            @AuthenticationPrincipal Jwt jwt) { // 👈 Το Spring κάνει τη "μαγεία" εδώ
 
-        String userId = auth.getName();
-        String token = ((Jwt) Objects.requireNonNull(auth.getPrincipal())).getTokenValue();
+        // 1. Τώρα μπορείς να πάρεις το Token και το UserID χωρίς κίνδυνο για Exception
+        String token = jwt.getTokenValue();
+        String userId = jwt.getSubject();
         System.out.println("🚀 [ANSIBLE CONTROLLER] Webhook received for Job: " + analysisJobId + " from User: " + userId);
 
         try {
