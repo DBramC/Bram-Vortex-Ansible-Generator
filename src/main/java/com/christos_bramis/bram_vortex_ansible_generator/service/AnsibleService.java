@@ -58,33 +58,43 @@ public class AnsibleService {
                 // 2. AI Dispatch
                 String prompt = String.format("""
                     You are a Principal DevOps Engineer and Ansible Specialist.
-                    Generate a PRODUCTION-READY Ansible structure to deploy the application described in the Blueprint on a Virtual Machine.
-                
+                    Your objective is to provision a PRODUCTION-READY Docker Host on a Virtual Machine, preparing it for a CI/CD pipeline deployment via GitHub Actions.
+
                     --- ARCHITECTURAL BLUEPRINT (JSON) ---
-                    %s
+                    %%s
                     --------------------------------------
 
-                    ENGINEERING REQUIREMENTS:
-                    1. **OS Setup**: Read the required OS from the 'deploymentMetadata.osDistro' field in the JSON. Update caches accordingly (e.g., apt, yum).
-                    2. **Dependencies**: Read the language and version from 'ciCdMetadata.languageVersion' and 'ciCdMetadata.buildTool' to install the correct runtime (e.g., Java JDK, Node.js, Python).
-                    3. **Application Deployment**: 
-                       - Create the dedicated system user specified in 'deploymentMetadata.executionUser'.
-                       - Setup a directory structure in `/opt/app`.
-                       - Generate a Systemd unit file (`app.service`) to manage the application, using any 'deploymentMetadata.jvmArgs' if applicable.
-                    4. **Environment**: Inject configurations from 'configurationSettings' as environment variables.
-                    5. **Networking**: Open the firewall for the 'targetContainerPort' specified in the JSON.
+                    ENGINEERING REQUIREMENTS & STRICT CONSTRAINTS:
+                    1. **OS Setup**: 
+                        - Read the required OS from 'deploymentMetadata.osDistro'. 
+                        - Update OS caches (e.g., apt, yum) and install prerequisite system packages (curl, ca-certificates).
+       
+                    2. **Docker Engine (CRITICAL)**: 
+                        - Do NOT install application runtimes like Java, Node, or Python. 
+                        - Install ONLY Docker Engine (`docker.io` or `docker-ce`) and `docker-compose`.
+                        - Ensure the Docker daemon is enabled and started at boot.
+       
+                    3. **Permissions (CRITICAL for CI/CD)**: 
+                        - Read the execution user from 'deploymentMetadata.executionUser'.
+                        - Ensure this user exists on the system.
+                        - You MUST add this user to the `docker` group. This is mandatory so the external GitHub Actions runner can execute `docker pull` and `docker run` without `sudo`.
+       
+                    4. **Networking/Security**: 
+                        - Configure the firewall (UFW or firewalld) to explicitly allow SSH (port 22) AND the 'targetContainerPort' defined in the JSON.
+       
+                    5. **Dynamic Inventory**:
+                        - Create an `inventory.ini` file. Use a placeholder like `YOUR_INSTANCE_IP` for the host IP. Define the `ansible_user` based on the target OS (e.g., 'ubuntu').
 
-                    OUTPUT FORMAT:
-                    - Respond ONLY with a SINGLE, VALID JSON object.
-                    - NO markdown blocks (```json).
-                    - NO conversational text.
-    
-                    JSON STRUCTURE:
+                    OUTPUT FORMAT (CRITICAL):
+                        - Respond ONLY with a SINGLE, VALID JSON object.
+                        - NO markdown blocks (e.g., no ```json).
+                        - NO conversational text.
+
+                    EXPECTED JSON SCHEMA:
                     {
-                      "playbook.yml": "...",
-                      "inventory.ini": "...",
-                      "vars.yml": "...",
-                      "app.service.j2": "..."
+                        "playbook.yml": "<raw ansible yaml>",
+                        "inventory.ini": "<raw inventory ini>",
+                        "vars.yml": "<raw yaml variables>"
                     }
                     """, blueprintJson);
 
