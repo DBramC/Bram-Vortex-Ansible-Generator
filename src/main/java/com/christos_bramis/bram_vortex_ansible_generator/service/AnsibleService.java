@@ -62,7 +62,7 @@ public class AnsibleService {
 
                     --- ARCHITECTURAL BLUEPRINT (JSON) ---
                     %%s
-                    --------------------------------------
+                    ---------------------------------------
 
                     ENGINEERING REQUIREMENTS & STRICT CONSTRAINTS:
                     1. **OS Setup**: 
