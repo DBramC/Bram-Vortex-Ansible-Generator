@@ -44,6 +44,7 @@ public class SecurityConfig {
                         .requestMatchers("/ansible/generate/**").authenticated()
                         .requestMatchers("/ansible/download/**").authenticated()
                         .requestMatchers("/ansible/status/**").authenticated()
+                        .requestMatchers("/actuator/**").permitAll()
                         .anyRequest().authenticated()
                 )
 
